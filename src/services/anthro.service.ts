@@ -64,19 +64,45 @@ function maybeNum(value: unknown): number | undefined {
   return isNaN(n) ? undefined : n;
 }
 
-// Accepts both camelCase and snake_case keys returned by the WHO Anthro API
+function flagBool(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const v = value.trim().toLowerCase();
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  }
+  const n = Number(value);
+  return !isNaN(n) && n !== 0;
+}
+
+function objectValue(data: Record<string, unknown>, key: string): Record<string, unknown> {
+  const value = data[key];
+  return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+// Accepts nested Railway Anthro API output plus older flat camelCase/snake_case keys.
 function mapResponse(data: unknown): AnthroResponse {
   const d = data as Record<string, unknown>;
+  if (d['ok'] === false) {
+    throw new Error(`Anthro API returned ok=false: ${JSON.stringify(data)}`);
+  }
+
+  const zScores = objectValue(d, 'zScores');
+  const flags = objectValue(d, 'flags');
+  const computed = objectValue(d, 'computed');
+
   return {
-    zWeightForAge: num(d['zWeightForAge'] ?? d['waz'] ?? d['z_weight_for_age']),
-    zHeightForAge: num(d['zHeightForAge'] ?? d['haz'] ?? d['z_height_for_age']),
-    zWeightForHeight: num(d['zWeightForHeight'] ?? d['whz'] ?? d['z_weight_for_height']),
-    zBmiForAge: num(d['zBmiForAge'] ?? d['baz'] ?? d['z_bmi_for_age']),
-    flagWeightForAge: num(d['flagWeightForAge'] ?? d['fwaz'] ?? d['flag_weight_for_age']),
-    flagHeightForAge: num(d['flagHeightForAge'] ?? d['fhaz'] ?? d['flag_height_for_age']),
-    flagWeightForHeight: num(d['flagWeightForHeight'] ?? d['fwhz'] ?? d['flag_weight_for_height']),
-    flagBmiForAge: num(d['flagBmiForAge'] ?? d['fbaz'] ?? d['flag_bmi_for_age']),
-    computedBmi: num(d['computedBmi'] ?? d['bmi'] ?? d['computed_bmi']),
-    computedAdjustedHeight: maybeNum(d['computedAdjustedHeight'] ?? d['computed_adjusted_height']),
+    zWeightForAge: num(zScores['weightForAge'] ?? d['zWeightForAge'] ?? d['waz'] ?? d['z_weight_for_age']),
+    zHeightForAge: num(zScores['heightForAge'] ?? d['zHeightForAge'] ?? d['haz'] ?? d['z_height_for_age']),
+    zWeightForHeight: num(zScores['weightForHeight'] ?? d['zWeightForHeight'] ?? d['whz'] ?? d['z_weight_for_height']),
+    zBmiForAge: num(zScores['bmiForAge'] ?? d['zBmiForAge'] ?? d['baz'] ?? d['z_bmi_for_age']),
+    flagWeightForAge: flagBool(flags['weightForAge'] ?? d['flagWeightForAge'] ?? d['fwaz'] ?? d['flag_weight_for_age']),
+    flagHeightForAge: flagBool(flags['heightForAge'] ?? d['flagHeightForAge'] ?? d['fhaz'] ?? d['flag_height_for_age']),
+    flagWeightForHeight: flagBool(flags['weightForHeight'] ?? d['flagWeightForHeight'] ?? d['fwhz'] ?? d['flag_weight_for_height']),
+    flagBmiForAge: flagBool(flags['bmiForAge'] ?? d['flagBmiForAge'] ?? d['fbaz'] ?? d['flag_bmi_for_age']),
+    computedBmi: num(computed['bmi'] ?? d['computedBmi'] ?? d['bmi'] ?? d['computed_bmi']),
+    computedAdjustedHeight: maybeNum(
+      computed['adjustedLengthOrHeight'] ?? d['computedAdjustedHeight'] ?? d['computed_adjusted_height']
+    ),
   };
 }

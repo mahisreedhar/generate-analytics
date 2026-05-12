@@ -1,7 +1,7 @@
 import type { VisitAnswer, AnthropometricValues } from '../types/index.js';
 
-const Q_WEIGHT = 'q_weight';
-const Q_HEIGHT = 'q_height';
+const Q_WEIGHT = 'q65_current_weight';
+const Q_HEIGHT = 'q66_current_height_length';
 const Q_MEASURE = 'q_measure';
 
 export function extractAnthropometricValues(answers: VisitAnswer[]): AnthropometricValues {

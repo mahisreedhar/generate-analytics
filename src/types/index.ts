@@ -1,17 +1,18 @@
 import { Models } from 'node-appwrite';
 
 export interface Child extends Models.Document {
+  $id: string;
   name: string;
   project: string;
   gender: string;
-  dob: string;
+  date_of_birth: string;
 }
 
 export interface Visit extends Models.Document {
+  $id: string;
   child: string | Child;
   phase: string;
   visit_date: string;
-  created_by: string;
 }
 
 export interface VisitAnswer extends Models.Document {
@@ -26,7 +27,6 @@ export interface AnalyticsDocument {
   visit: string;
   phase: string;
   visit_date: string;
-  created_by: string;
   gender: string;
   ageInMonths: number;
   weight: number;
@@ -36,15 +36,13 @@ export interface AnalyticsDocument {
   z_height_for_age: number;
   z_weight_for_height: number;
   z_bmi_for_age: number;
-  flag_weight_for_age: number;
-  flag_height_for_age: number;
-  flag_weight_for_height: number;
-  flag_bmi_for_age: number;
+  flag_weight_for_age: boolean;
+  flag_height_for_age: boolean;
+  flag_weight_for_height: boolean;
+  flag_bmi_for_age: boolean;
   computed_bmi: number;
   computed_adjusted_height?: number;
-  nutrition_status: string;
-  created_at: string;
-  updated_at: string;
+  nutrition_labels: string[];
 }
 
 export interface AnthroRequest {
@@ -60,10 +58,10 @@ export interface AnthroResponse {
   zHeightForAge: number;
   zWeightForHeight: number;
   zBmiForAge: number;
-  flagWeightForAge: number;
-  flagHeightForAge: number;
-  flagWeightForHeight: number;
-  flagBmiForAge: number;
+  flagWeightForAge: boolean;
+  flagHeightForAge: boolean;
+  flagWeightForHeight: boolean;
+  flagBmiForAge: boolean;
   computedBmi: number;
   computedAdjustedHeight?: number;
 }

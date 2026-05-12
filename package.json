@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "backfill:analytics": "npm run build && node dist/scripts/backfill-analytics.js",
+    "export:duplicate-children": "npm run build && node dist/scripts/export-duplicate-children.js",
     "format": "prettier --write ."
   },
   "dependencies": {

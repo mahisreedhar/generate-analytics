@@ -33,17 +33,17 @@ visit_answers.create / visit_answers.update
 
 ## Environment variables
 
-| Variable                    | Description                                       | Example                              |
-|-----------------------------|---------------------------------------------------|--------------------------------------|
-| `APPWRITE_ENDPOINT`         | Appwrite API endpoint                             | `https://cloud.appwrite.io/v1`       |
-| `APPWRITE_PROJECT_ID`       | Appwrite project ID                               | `66abc123def`                        |
-| `APPWRITE_API_KEY`          | Server API key (needs DB read + write)            | `standard_abc123…`                   |
-| `DATABASE_ID`               | Appwrite database ID                              | `main`                               |
-| `CHILDREN_COLLECTION_ID`    | Collection: `children`                            | `children`                           |
-| `VISITS_COLLECTION_ID`      | Collection: `visits`                              | `visits`                             |
-| `VISIT_ANSWERS_COLLECTION_ID` | Collection: `visit_answers`                     | `visit_answers`                      |
-| `ANALYTICS_COLLECTION_ID`   | Collection: `analytics`                           | `analytics`                          |
-| `ANTHRO_API_URL`            | Base URL of the WHO Anthro z-score API            | `https://who-anthro-analytics-production.up.railway.app` |
+| Variable                      | Description                            | Example                                                  |
+| ----------------------------- | -------------------------------------- | -------------------------------------------------------- |
+| `APPWRITE_ENDPOINT`           | Appwrite API endpoint                  | `https://cloud.appwrite.io/v1`                           |
+| `APPWRITE_PROJECT_ID`         | Appwrite project ID                    | `66abc123def`                                            |
+| `APPWRITE_API_KEY`            | Server API key (needs DB read + write) | `standard_abc123…`                                       |
+| `DATABASE_ID`                 | Appwrite database ID                   | `main`                                                   |
+| `CHILDREN_COLLECTION_ID`      | Collection: `children`                 | `children`                                               |
+| `VISITS_COLLECTION_ID`        | Collection: `visits`                   | `visits`                                                 |
+| `VISIT_ANSWERS_COLLECTION_ID` | Collection: `visit_answers`            | `visit_answers`                                          |
+| `ANALYTICS_COLLECTION_ID`     | Collection: `analytics`                | `analytics`                                              |
+| `ANTHRO_API_URL`              | Base URL of the WHO Anthro z-score API | `https://who-anthro-analytics-production.up.railway.app` |
 
 ---
 
@@ -65,13 +65,13 @@ databases.*.collections.*.documents.*.update
 
 ### Function settings
 
-| Setting           | Value                                |
-|-------------------|--------------------------------------|
-| Runtime           | Node.js 20                           |
-| Entrypoint        | `dist/main.js`                       |
-| Build command     | `npm install && npm run build`       |
-| Timeout (seconds) | 30                                   |
-| Permissions       | Server (API key)                     |
+| Setting           | Value                          |
+| ----------------- | ------------------------------ |
+| Runtime           | Node.js 20                     |
+| Entrypoint        | `dist/main.js`                 |
+| Build command     | `npm install && npm run build` |
+| Timeout (seconds) | 30                             |
+| Permissions       | Server (API key)               |
 
 ---
 
@@ -129,7 +129,7 @@ import handler from './dist/main.js';
 
 const fakeVisitAnswer = {
   $id: 'ans_001',
-  visit: 'visit_abc123',   // the visit ID
+  visit: 'visit_abc123', // the visit ID
   question: 'q_weight',
   answer_text: '12.5',
 };
@@ -138,13 +138,17 @@ await handler({
   req: {
     body: fakeVisitAnswer,
     bodyRaw: JSON.stringify(fakeVisitAnswer),
-    headers: { 'x-appwrite-event': 'databases.main.collections.visit_answers.documents.ans_001.create' },
+    headers: {
+      'x-appwrite-event':
+        'databases.main.collections.visit_answers.documents.ans_001.create',
+    },
     method: 'POST',
     path: '/',
     query: {},
   },
   res: {
-    json: (data, status = 200) => console.log(status, JSON.stringify(data, null, 2)),
+    json: (data, status = 200) =>
+      console.log(status, JSON.stringify(data, null, 2)),
     send: (body, status = 200) => console.log(status, body),
     text: (body, status = 200) => console.log(status, body),
   },
@@ -157,45 +161,78 @@ await handler({
 node --env-file=.env test-local.mjs
 ```
 
+### Backfill analytics for existing children
+
+The backfill script pages through the `children` collection, loads each child's visits,
+recomputes Anthro scores, and upserts one analytics document per visit.
+
+Run a dry pass first. This reads only 5 children, runs the analytics pipeline,
+prints the analytics payloads, and skips DB writes:
+
+```bash
+npm run build
+node --env-file=.env dist/scripts/backfill-analytics.js --dry-run
+```
+
+Run the real backfill:
+
+```bash
+npm run build
+node --env-file=.env dist/scripts/backfill-analytics.js --batch-size 50 --concurrency 3
+```
+
+Backfill one child:
+
+```bash
+npm run build
+node --env-file=.env dist/scripts/backfill-analytics.js --child-id child_abc123
+```
+
+Options:
+
+| Option          | Default | Description                                   |
+| --------------- | ------- | --------------------------------------------- |
+| `--batch-size`  | `50`    | Number of children loaded per Appwrite page   |
+| `--concurrency` | `3`     | Number of children processed at the same time |
+| `--dry-run`     | `false` | Compute and log payloads without DB writes    |
+| `--child-id`    | n/a     | Process only one child                        |
+
 ---
 
 ## Analytics document structure
 
 The function writes to the `analytics` collection using the **visit ID** as the document `$id`.
 
-| Field                  | Type    | Source                              |
-|------------------------|---------|-------------------------------------|
-| `project`              | string  | `child.project`                     |
-| `child`                | string  | `child.$id`                         |
-| `visit`                | string  | `visit.$id`                         |
-| `phase`                | string  | `visit.phase`                       |
-| `visit_date`           | string  | `visit.visit_date`                  |
-| `created_by`           | string  | `visit.created_by`                  |
-| `gender`               | string  | `child.gender`                      |
-| `ageInMonths`          | float   | computed (dob → visit_date)         |
-| `weight`               | float   | `q_weight` answer                   |
-| `height`               | float   | `q_height` answer                   |
-| `measure`              | string  | `q_measure` answer (`l` / `h`)      |
-| `z_weight_for_age`     | float   | WHO Anthro API                      |
-| `z_height_for_age`     | float   | WHO Anthro API                      |
-| `z_weight_for_height`  | float   | WHO Anthro API                      |
-| `z_bmi_for_age`        | float   | WHO Anthro API                      |
-| `flag_*`               | integer | WHO Anthro API flags (0/1)          |
-| `computed_bmi`         | float   | WHO Anthro API                      |
-| `computed_adjusted_height` | float? | WHO Anthro API (optional)       |
-| `nutrition_status`     | string  | `SAM` / `MAM` / `NORMAL`           |
-| `created_at`           | string  | ISO timestamp (set on first create) |
-| `updated_at`           | string  | ISO timestamp (updated every run)   |
+| Field                      | Type     | Source                         |
+| -------------------------- | -------- | ------------------------------ |
+| `project`                  | string   | `child.project`                |
+| `child`                    | string   | `child.$id`                    |
+| `visit`                    | string   | `visit.$id`                    |
+| `phase`                    | string   | `visit.phase`                  |
+| `visit_date`               | string   | `visit.visit_date`             |
+| `gender`                   | string   | `child.gender`                 |
+| `ageInMonths`              | integer  | computed completed months      |
+| `weight`                   | float    | `q_weight` answer              |
+| `height`                   | float    | `q_height` answer              |
+| `measure`                  | string   | `q_measure` answer (`l` / `h`) |
+| `z_weight_for_age`         | float    | WHO Anthro API                 |
+| `z_height_for_age`         | float    | WHO Anthro API                 |
+| `z_weight_for_height`      | float    | WHO Anthro API                 |
+| `z_bmi_for_age`            | float    | WHO Anthro API                 |
+| `flag_*`                   | boolean  | WHO Anthro API flags           |
+| `computed_bmi`             | float    | WHO Anthro API                 |
+| `computed_adjusted_height` | float?   | WHO Anthro API (optional)      |
+| `nutrition_labels`         | string[] | Computed nutrition labels      |
 
 ---
 
 ## Nutrition status rules
 
-| Condition                   | Status   |
-|-----------------------------|----------|
-| WHZ < −3                    | `SAM`    |
-| −3 ≤ WHZ < −2               | `MAM`    |
-| WHZ ≥ −2                    | `NORMAL` |
+| Condition     | Status   |
+| ------------- | -------- |
+| WHZ < −3      | `SAM`    |
+| −3 ≤ WHZ < −2 | `MAM`    |
+| WHZ ≥ −2      | `NORMAL` |
 
 ---
 
@@ -203,7 +240,7 @@ The function writes to the `analytics` collection using the **visit ID** as the 
 
 The function normalises the raw string from `visit_answers`:
 
-| Raw value              | Normalised |
-|------------------------|------------|
-| `l`, `lying`, `recumbent` | `l` (recumbent / length) |
-| `h`, `standing`, `upright` | `h` (standing / height) |
+| Raw value                  | Normalised               |
+| -------------------------- | ------------------------ |
+| `l`, `lying`, `recumbent`  | `l` (recumbent / length) |
+| `h`, `standing`, `upright` | `h` (standing / height)  |
